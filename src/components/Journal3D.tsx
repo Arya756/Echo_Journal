@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface Journal3DProps {
@@ -30,12 +30,40 @@ export default function Journal3D({
   const [rotation, setRotation] = useState({ x: -15, y: 20 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [bookWidth, setBookWidth] = useState<number>(400);
+  const [bookHeight, setBookHeight] = useState<number>(550);
+
+  // (touch detection not needed directly — touch handlers are wired below)
+
+  useEffect(() => {
+    const computeSize = () => {
+      if (typeof window === 'undefined') return;
+      const vw = Math.max(320, Math.min(window.innerWidth, 1200));
+      // use up to 85% of viewport width on small screens, cap at 400
+      const w = Math.min(400, Math.floor(vw * 0.85));
+      const h = Math.round(w * 1.375); // maintain original aspect ratio (550/400)
+      setBookWidth(w);
+      setBookHeight(h);
+    };
+
+    computeSize();
+    window.addEventListener('resize', computeSize);
+    return () => window.removeEventListener('resize', computeSize);
+  }, []);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     // prevent image selection when starting a drag
     e.preventDefault();
     setIsDragging(true);
     setDragStart({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    // prevent page from scrolling while dragging
+    e.preventDefault();
+    const t = e.touches[0];
+    setIsDragging(true);
+    setDragStart({ x: t.clientX, y: t.clientY });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -52,7 +80,28 @@ export default function Journal3D({
     setDragStart({ x: e.clientX, y: e.clientY });
   };
 
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return;
+    e.preventDefault();
+    const t = e.touches[0];
+    const deltaX = t.clientX - dragStart.x;
+    const deltaY = t.clientY - dragStart.y;
+
+    // reduce sensitivity for touch
+    const mul = 0.16;
+    setRotation(prev => ({
+      x: Math.max(-30, Math.min(30, prev.x - deltaY * mul)),
+      y: Math.max(-45, Math.min(45, prev.y + deltaX * mul))
+    }));
+
+    setDragStart({ x: t.clientX, y: t.clientY });
+  };
+
   const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleTouchEnd = () => {
     setIsDragging(false);
   };
 
@@ -90,32 +139,40 @@ export default function Journal3D({
         style={{
           transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`,
           transformStyle: 'preserve-3d',
-          transition: isDragging ? 'none' : 'transform 0.3s ease-out'
+          transition: isDragging ? 'none' : 'transform 0.3s ease-out',
+          touchAction: 'none' // prevent default browser touch handling while interacting
         }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         {/* Journal Book */}
         <div className="relative" style={{ transformStyle: 'preserve-3d' }}>
           {/* Back Cover (behind) */}
           <div
-            className={`absolute w-[400px] h-[550px] rounded-r-lg shadow-2xl ${getTextureStyle(texture)} overflow-hidden`}
+            className={`absolute rounded-r-lg shadow-2xl ${getTextureStyle(texture)} overflow-hidden`}
             style={{
+              width: `${bookWidth}px`,
+              height: `${bookHeight}px`,
               transform: 'translateZ(-30px)',
               transformStyle: 'preserve-3d'
             }}
           >
             {coverImage && (
-              <img src={coverImage} alt="back cover" className="absolute inset-0 w-full h-full object-cover select-none" draggable={false} onDragStart={(e) => e.preventDefault()} />
+              <img src={coverImage} alt="back cover" className="absolute inset-0 w-full h-full object-cover select-none" draggable={false} onDragStart={(e) => e.preventDefault()} style={{ touchAction: 'none' }} />
             )}
           </div>
 
           {/* Pages Stack */}
           <div
-            className="absolute w-[400px] h-[550px] bg-gradient-to-r from-amber-50 to-white shadow-inner"
+            className="absolute bg-gradient-to-r from-amber-50 to-white shadow-inner"
             style={{
+              width: `${bookWidth}px`,
+              height: `${bookHeight}px`,
               transform: 'translateZ(-29px) translateX(2px)',
               transformStyle: 'preserve-3d'
             }}
@@ -133,10 +190,12 @@ export default function Journal3D({
           {/* Current Page (Right side when open) */}
           {currentPage > 0 && (
             <div
-              className={`absolute w-[400px] h-[550px] bg-gradient-to-br from-amber-50 to-white shadow-xl rounded-r-lg overflow-hidden ${
-                isFlipping ? 'animate-page-flip' : ''
-              }`}
+              className={`absolute bg-gradient-to-br from-amber-50 to-white shadow-xl rounded-r-lg overflow-hidden ${
+                  isFlipping ? 'animate-page-flip' : ''
+                }`}
               style={{
+                width: `${bookWidth}px`,
+                height: `${bookHeight}px`,
                 transform: 'translateZ(0px)',
                 transformStyle: 'preserve-3d',
                 transformOrigin: 'left center'
@@ -152,14 +211,15 @@ export default function Journal3D({
                     className="absolute inset-0 w-full h-full object-cover select-none"
                     draggable={false}
                     onDragStart={(e) => e.preventDefault()}
+                    style={{ touchAction: 'none' }}
                   />
                 </>
               ) : pageImage ? (
                 <>
-                  <img src={pageImage} alt={`Page`} className="absolute inset-0 w-full h-full object-cover select-none" draggable={false} onDragStart={(e) => e.preventDefault()} />
+                  <img src={pageImage} alt={`Page`} className="absolute inset-0 w-full h-full object-cover select-none" draggable={false} onDragStart={(e) => e.preventDefault()} style={{ touchAction: 'none' }} />
                 </>
               ) : (
-                <div className="p-12 h-full flex flex-col">
+                <div className="p-12 h-full flex flex-col" style={{ width: `${bookWidth}px`, height: `${bookHeight}px` }}>
                   {pageContent && (
                     <>
                       <h2 className="text-2xl font-serif text-slate-800 mb-6">{pageContent.title}</h2>
@@ -173,8 +233,10 @@ export default function Journal3D({
 
           {/* Front Cover */}
           <div
-            className={`relative w-[400px] h-[550px] rounded-lg shadow-2xl overflow-hidden ${getTextureStyle(texture)}`}
+            className={`relative rounded-lg shadow-2xl overflow-hidden ${getTextureStyle(texture)}`}
             style={{
+              width: `${bookWidth}px`,
+              height: `${bookHeight}px`,
               backgroundColor: coverImage ? 'transparent' : coverColor,
               transform: currentPage === 0 ? 'translateZ(1px)' : 'translateZ(-30px) rotateY(-180deg)',
               transformStyle: 'preserve-3d',
@@ -209,10 +271,12 @@ export default function Journal3D({
 
           {/* Spine */}
           <div
-            className="absolute w-[30px] h-[550px] left-0 top-0 shadow-xl"
+            className="absolute left-0 top-0 shadow-xl"
             style={{
+              width: `${Math.max(18, Math.round(bookWidth * 0.07))}px`,
+              height: `${bookHeight}px`,
               backgroundColor: coverColor,
-              transform: 'translateX(-15px) translateZ(-15px) rotateY(90deg)',
+              transform: `translateX(-${Math.max(8, Math.round(bookWidth * 0.03))}px) translateZ(-15px) rotateY(90deg)`,
               transformStyle: 'preserve-3d',
               transformOrigin: 'center center'
             }}
