@@ -1,0 +1,256 @@
+import { useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+
+interface Journal3DProps {
+  coverColor: string;
+  texture: string;
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  pageContent?: {
+    title: string;
+    content: string;
+    description?: string;
+  };
+  coverImage?: string | null;
+  pageImage?: string | null;
+}
+
+export default function Journal3D({
+  coverColor,
+  texture,
+  currentPage,
+  totalPages,
+  onPageChange,
+  pageContent
+  , coverImage,
+  pageImage
+}: Journal3DProps) {
+  const [isFlipping, setIsFlipping] = useState(false);
+  const [rotation, setRotation] = useState({ x: -15, y: 20 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    // prevent image selection when starting a drag
+    e.preventDefault();
+    setIsDragging(true);
+    setDragStart({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+
+    const deltaX = e.clientX - dragStart.x;
+    const deltaY = e.clientY - dragStart.y;
+
+    setRotation(prev => ({
+      x: Math.max(-30, Math.min(30, prev.x - deltaY * 0.3)),
+      y: Math.max(-45, Math.min(45, prev.y + deltaX * 0.3))
+    }));
+
+    setDragStart({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const flipPage = (direction: 'next' | 'prev') => {
+    if (isFlipping) return;
+
+    setIsFlipping(true);
+
+    if (direction === 'next' && currentPage < totalPages) {
+      onPageChange(currentPage + 1);
+    } else if (direction === 'prev' && currentPage > 0) {
+      onPageChange(currentPage - 1);
+    }
+
+    setTimeout(() => setIsFlipping(false), 800);
+  };
+
+  const getTextureStyle = (texture: string) => {
+    switch (texture) {
+      case 'leather':
+        return 'bg-gradient-to-br from-amber-900/20 to-transparent';
+      case 'fabric':
+        return 'bg-gradient-to-br from-slate-900/20 to-transparent';
+      case 'paper':
+        return 'bg-gradient-to-br from-amber-50/20 to-transparent';
+      default:
+        return '';
+    }
+  };
+
+  return (
+    <div className="relative w-full h-full flex items-center justify-center perspective-1000">
+      <div
+        className="relative cursor-grab active:cursor-grabbing"
+        style={{
+          transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`,
+          transformStyle: 'preserve-3d',
+          transition: isDragging ? 'none' : 'transform 0.3s ease-out'
+        }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+      >
+        {/* Journal Book */}
+        <div className="relative" style={{ transformStyle: 'preserve-3d' }}>
+          {/* Back Cover (behind) */}
+          <div
+            className={`absolute w-[400px] h-[550px] rounded-r-lg shadow-2xl ${getTextureStyle(texture)} overflow-hidden`}
+            style={{
+              transform: 'translateZ(-30px)',
+              transformStyle: 'preserve-3d'
+            }}
+          >
+            {coverImage && (
+              <img src={coverImage} alt="back cover" className="absolute inset-0 w-full h-full object-cover select-none" draggable={false} onDragStart={(e) => e.preventDefault()} />
+            )}
+          </div>
+
+          {/* Pages Stack */}
+          <div
+            className="absolute w-[400px] h-[550px] bg-gradient-to-r from-amber-50 to-white shadow-inner"
+            style={{
+              transform: 'translateZ(-29px) translateX(2px)',
+              transformStyle: 'preserve-3d'
+            }}
+          >
+            {/* Page lines effect */}
+            {[...Array(20)].map((_, i) => (
+              <div
+                key={i}
+                className="absolute right-0 w-[2px] h-full bg-amber-100/50"
+                style={{ right: `${i * 2}px` }}
+              />
+            ))}
+          </div>
+
+          {/* Current Page (Right side when open) */}
+          {currentPage > 0 && (
+            <div
+              className={`absolute w-[400px] h-[550px] bg-gradient-to-br from-amber-50 to-white shadow-xl rounded-r-lg overflow-hidden ${
+                isFlipping ? 'animate-page-flip' : ''
+              }`}
+              style={{
+                transform: 'translateZ(0px)',
+                transformStyle: 'preserve-3d',
+                transformOrigin: 'left center'
+              }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-b from-amber-50/30 to-transparent" />
+              {/* Full-bleed index image when opened (no padding/gaps) */}
+              {currentPage === 1 ? (
+                <>
+                  <img
+                    src="/index_page.jpg"
+                    alt="Index Page"
+                    className="absolute inset-0 w-full h-full object-cover select-none"
+                    draggable={false}
+                    onDragStart={(e) => e.preventDefault()}
+                  />
+                </>
+              ) : pageImage ? (
+                <>
+                  <img src={pageImage} alt={`Page`} className="absolute inset-0 w-full h-full object-cover select-none" draggable={false} onDragStart={(e) => e.preventDefault()} />
+                </>
+              ) : (
+                <div className="p-12 h-full flex flex-col">
+                  {pageContent && (
+                    <>
+                      <h2 className="text-2xl font-serif text-slate-800 mb-6">{pageContent.title}</h2>
+                      <p className="text-slate-700 leading-relaxed font-serif whitespace-pre-line flex-1">{pageContent.content}</p>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Front Cover */}
+          <div
+            className={`relative w-[400px] h-[550px] rounded-lg shadow-2xl overflow-hidden ${getTextureStyle(texture)}`}
+            style={{
+              backgroundColor: coverImage ? 'transparent' : coverColor,
+              transform: currentPage === 0 ? 'translateZ(1px)' : 'translateZ(-30px) rotateY(-180deg)',
+              transformStyle: 'preserve-3d',
+              transformOrigin: 'right center',
+              transition: 'transform 0.8s cubic-bezier(0.4, 0.0, 0.2, 1)'
+            }}
+          >
+            {coverImage ? (
+              <img src={coverImage} alt="cover" className="absolute inset-0 w-full h-full object-cover select-none" draggable={false} onDragStart={(e) => e.preventDefault()} />
+            ) : (
+              <>
+                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
+                <div className="relative h-full flex flex-col items-center justify-center p-12">
+                  <div className="text-center">
+                    <div className="text-6xl font-serif text-white/90 mb-4 tracking-wider">
+                      Echo
+                    </div>
+                    <div className="text-2xl font-light text-white/80 tracking-[0.3em] mb-8">
+                      JOURNAL
+                    </div>
+                    <div className="w-32 h-[1px] bg-white/40 mx-auto mb-8" />
+                    <div className="text-sm text-white/70 font-serif italic">
+                      A Journey Through
+                      <br />
+                      Emotional Intelligence
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Spine */}
+          <div
+            className="absolute w-[30px] h-[550px] left-0 top-0 shadow-xl"
+            style={{
+              backgroundColor: coverColor,
+              transform: 'translateX(-15px) translateZ(-15px) rotateY(90deg)',
+              transformStyle: 'preserve-3d',
+              transformOrigin: 'center center'
+            }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent" />
+          </div>
+        </div>
+
+        {/* Navigation Buttons */}
+        {currentPage > 0 && (
+          <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 flex gap-4">
+            <button
+              onClick={() => flipPage('prev')}
+              disabled={currentPage === 0 || isFlipping}
+              className="bg-white/90 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed p-3 rounded-full shadow-lg transition-all transform hover:scale-110"
+            >
+              <ChevronLeft className="w-6 h-6 text-slate-700" />
+            </button>
+            <button
+              onClick={() => flipPage('next')}
+              disabled={currentPage === totalPages || isFlipping}
+              className="bg-white/90 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed p-3 rounded-full shadow-lg transition-all transform hover:scale-110"
+            >
+              <ChevronRight className="w-6 h-6 text-slate-700" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Open Journal Button (when closed) */}
+      {currentPage === 0 && (
+        <button
+          onClick={() => flipPage('next')}
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-white/90 hover:bg-white px-8 py-3 rounded-full shadow-xl transition-all transform hover:scale-105 text-slate-700 font-medium"
+        >
+          Open Journal
+        </button>
+      )}
+    </div>
+  );
+}
