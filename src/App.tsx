@@ -147,6 +147,7 @@ function App() {
             } : undefined}
             pageImage={pageImage}
             prevPageImage={prevPageImage}
+            onClose={() => setCurrentPage(0)}
           />
         </div>
 

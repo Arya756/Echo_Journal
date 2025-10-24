@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface Journal3DProps {
@@ -15,6 +16,7 @@ interface Journal3DProps {
   coverImage?: string | null;
   pageImage?: string | null;
   prevPageImage?: string | null;
+  onClose?: () => void;
 }
 
 export default function Journal3D({
@@ -23,10 +25,11 @@ export default function Journal3D({
   currentPage,
   totalPages,
   onPageChange,
-  pageContent
-  , coverImage,
-  pageImage
-  , prevPageImage
+  pageContent,
+  coverImage,
+  pageImage,
+  prevPageImage,
+  onClose
 }: Journal3DProps) {
   const [isFlipping, setIsFlipping] = useState(false);
   const [rotation, setRotation] = useState({ x: -15, y: 20 });
@@ -40,10 +43,31 @@ export default function Journal3D({
   useEffect(() => {
     const computeSize = () => {
       if (typeof window === 'undefined') return;
-      const vw = Math.max(320, Math.min(window.innerWidth, 1200));
-      // use up to 85% of viewport width on small screens, cap at 400
-      const w = Math.min(400, Math.floor(vw * 0.85));
-      const h = Math.round(w * 1.375); // maintain original aspect ratio (550/400)
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+
+      // smaller footprint on phones, slightly larger on tablets, cap on desktop
+      let w: number;
+      if (vw < 420) {
+        // phones: use ~72% of width but cap low so book doesn't overflow or dominate UI
+        w = Math.min(360, Math.floor(vw * 0.72));
+      } else if (vw < 900) {
+        // tablets / small laptops: use a comfortable portion
+        w = Math.min(380, Math.floor(vw * 0.6));
+      } else {
+        w = Math.min(400, Math.floor(vw * 0.45));
+      }
+
+      // ensure height fits within viewport (respect header/footer) by clamping to a fraction of vh
+      const hCandidate = Math.round(w * 1.375);
+      const maxH = Math.floor(vh * 0.72);
+      let h = hCandidate;
+      if (hCandidate > maxH) {
+        // scale width down so height fits
+        w = Math.floor(maxH / 1.375);
+        h = Math.round(w * 1.375);
+      }
+
       setBookWidth(w);
       setBookHeight(h);
     };
@@ -140,7 +164,7 @@ export default function Journal3D({
   };
 
   return (
-    <div className="relative w-full h-full flex items-center justify-center perspective-1000">
+    <div className="relative w-full h-full flex items-center justify-center perspective-1000 overflow-hidden">
       <div
         className="relative cursor-grab active:cursor-grabbing"
         style={{
@@ -149,7 +173,9 @@ export default function Journal3D({
           transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`,
           transformStyle: 'preserve-3d',
           transition: isDragging ? 'none' : 'transform 0.3s ease-out',
-          touchAction: 'none' // prevent default browser touch handling while interacting
+          touchAction: 'none', // prevent default browser touch handling while interacting
+          maxWidth: '100%',
+          boxSizing: 'border-box'
         }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -159,6 +185,17 @@ export default function Journal3D({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
+        {/* Close / Back button when the book is open */}
+        {currentPage > 0 && onClose && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onClose(); }}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="absolute z-20 left-3 top-3 bg-white/90 hover:bg-white p-2 rounded-full shadow-md flex items-center justify-center"
+            aria-label="Close journal"
+          >
+            <X className="w-4 h-4 text-slate-700" />
+          </button>
+        )}
         {/* Journal Book */}
         <div className="relative" style={{ transformStyle: 'preserve-3d' }}>
           {/* Back Cover (behind) */}
@@ -305,7 +342,7 @@ export default function Journal3D({
 
         {/* Navigation Buttons */}
         {currentPage > 0 && (
-          <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 flex gap-4">
+          <div className="absolute sm:-bottom-20 bottom-4 left-1/2 -translate-x-1/2 flex gap-4">
             <button
               onClick={() => flipPage('prev')}
               disabled={currentPage === 0 || isFlipping}
@@ -328,7 +365,7 @@ export default function Journal3D({
       {currentPage === 0 && (
         <button
           onClick={() => flipPage('next')}
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-white/90 hover:bg-white px-8 py-3 rounded-full shadow-xl transition-all transform hover:scale-105 text-slate-700 font-medium"
+          className="absolute sm:bottom-8 bottom-4 left-1/2 -translate-x-1/2 bg-white/90 hover:bg-white px-6 py-3 rounded-full shadow-xl transition-all transform hover:scale-105 text-slate-700 font-medium"
         >
           Open Journal
         </button>
