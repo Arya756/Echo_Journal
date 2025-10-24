@@ -43,17 +43,17 @@ export default function PageDescription({ page, onJumpTo, totalPages }: PageDesc
   };
 
   return (
-    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 max-w-2xl mx-auto">
-      <div className="flex items-center gap-3 mb-6 justify-between">
+    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 sm:p-8 max-w-2xl mx-auto">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-6 justify-between">
         <div className="flex items-center gap-3">
           <span className={`${getCategoryColor()} px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2`}>
             {getCategoryIcon()}
             Introduction
           </span>
-          <span className="text-sm text-slate-500">Page {page.page_number}</span>
+          <span className="text-sm text-slate-500 ml-1">Page {page.page_number}</span>
         </div>
         {onJumpTo && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mt-3 sm:mt-0">
             <input
               type="number"
               min={0}
@@ -62,9 +62,9 @@ export default function PageDescription({ page, onJumpTo, totalPages }: PageDesc
               onChange={(e) => setJumpValue(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleJump(); }}
               placeholder={`0 - ${totalPages ? totalPages - 1 : 'N'}`}
-              className="w-20 px-2 py-1 border rounded text-sm"
+              className="w-20 sm:w-20 px-2 py-1 border rounded text-sm"
             />
-            <button onClick={handleJump} className="px-3 py-1 bg-amber-500 text-white rounded text-sm">Go</button>
+            <button onClick={handleJump} className="px-3 py-1 bg-amber-500 text-white rounded text-sm whitespace-nowrap">Go</button>
           </div>
         )}
       </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -37,6 +37,8 @@ export default function Journal3D({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [bookWidth, setBookWidth] = useState<number>(400);
   const [bookHeight, setBookHeight] = useState<number>(550);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const [navPos, setNavPos] = useState<{ left: number; top: number } | null>(null);
 
   // (touch detection not needed directly — touch handlers are wired below)
 
@@ -76,6 +78,29 @@ export default function Journal3D({
     window.addEventListener('resize', computeSize);
     return () => window.removeEventListener('resize', computeSize);
   }, []);
+
+  // position nav under the visual book by measuring the wrapper's bounding rect (handles transforms)
+  useEffect(() => {
+    const updateNav = () => {
+      const el = wrapperRef.current;
+      if (!el) {
+        setNavPos(null);
+        return;
+      }
+      const rect = el.getBoundingClientRect();
+      const left = rect.left + rect.width / 2;
+      const top = rect.bottom + Math.max(12, Math.round(bookHeight * 0.04));
+      setNavPos({ left, top });
+    };
+
+    updateNav();
+    window.addEventListener('resize', updateNav);
+    window.addEventListener('scroll', updateNav, true);
+    return () => {
+      window.removeEventListener('resize', updateNav);
+      window.removeEventListener('scroll', updateNav, true);
+    };
+  }, [bookWidth, bookHeight, rotation.x, rotation.y, currentPage, isDragging]);
 
   // proportional depth values to avoid fixed pixel translateZ that cause expansion on small screens
   const zDepth = Math.max(12, Math.round(bookWidth * 0.075));
@@ -177,6 +202,7 @@ export default function Journal3D({
           maxWidth: '100%',
           boxSizing: 'border-box'
         }}
+        ref={wrapperRef}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -340,9 +366,13 @@ export default function Journal3D({
           </div>
         </div>
 
-        {/* Navigation Buttons */}
-        {currentPage > 0 && (
-          <div className="absolute sm:-bottom-20 bottom-4 left-1/2 -translate-x-1/2 flex gap-4">
+        
+      </div>
+
+      {/* Navigation Buttons (rendered below the book so they don't overlap) */}
+      {currentPage > 0 && navPos && !isDragging && (
+        <div style={{ position: 'fixed', left: navPos.left, top: navPos.top, transform: 'translateX(-50%)', zIndex: 9999 }}>
+          <div className="bg-white/90 rounded-full p-2 flex items-center gap-3 shadow-lg">
             <button
               onClick={() => flipPage('prev')}
               disabled={currentPage === 0 || isFlipping}
@@ -358,8 +388,8 @@ export default function Journal3D({
               <ChevronRight className="w-6 h-6 text-slate-700" />
             </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Open Journal Button (when closed) */}
       {currentPage === 0 && (
