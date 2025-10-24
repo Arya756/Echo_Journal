@@ -13,6 +13,7 @@ function App() {
   );
   const [currentPage, setCurrentPage] = useState(0);
   const [pageImage, setPageImage] = useState<string | null>(null);
+  const [prevPageImage, setPrevPageImage] = useState<string | null>(null);
 
   const { loadPdf, renderPageToDataUrl, extractPageText, extractPageFullText } = usePdf();
 
@@ -69,12 +70,29 @@ function App() {
     async function render() {
       if (currentPage <= 1) {
         setPageImage(null);
+        setPrevPageImage(null);
         return;
       }
       try {
         const pdfPageNumber = currentPage - 1;
         const dataUrl = await renderPageToDataUrl(pdfPageNumber, 1.5);
         if (mounted) setPageImage(dataUrl);
+        // render previous page image (if exists)
+        if (currentPage === 2) {
+          // previous is the index page image
+          setPrevPageImage('/index_page.jpg');
+        } else if (currentPage > 2) {
+          try {
+            const prevPdfPage = currentPage - 2;
+            const prevDataUrl = await renderPageToDataUrl(prevPdfPage, 1.5);
+            if (mounted) setPrevPageImage(prevDataUrl);
+          } catch (err) {
+            console.error('render prev page error', err);
+            if (mounted) setPrevPageImage(null);
+          }
+        } else {
+          setPrevPageImage(null);
+        }
       } catch (err) {
         console.error('render page error', err);
         setPageImage(null);
@@ -128,6 +146,7 @@ function App() {
               description: currentPageData.description
             } : undefined}
             pageImage={pageImage}
+            prevPageImage={prevPageImage}
           />
         </div>
 

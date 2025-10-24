@@ -14,6 +14,7 @@ interface Journal3DProps {
   };
   coverImage?: string | null;
   pageImage?: string | null;
+  prevPageImage?: string | null;
 }
 
 export default function Journal3D({
@@ -25,6 +26,7 @@ export default function Journal3D({
   pageContent
   , coverImage,
   pageImage
+  , prevPageImage
 }: Journal3DProps) {
   const [isFlipping, setIsFlipping] = useState(false);
   const [rotation, setRotation] = useState({ x: -15, y: 20 });
@@ -50,6 +52,11 @@ export default function Journal3D({
     window.addEventListener('resize', computeSize);
     return () => window.removeEventListener('resize', computeSize);
   }, []);
+
+  // proportional depth values to avoid fixed pixel translateZ that cause expansion on small screens
+  const zDepth = Math.max(12, Math.round(bookWidth * 0.075));
+  const spineOffset = Math.max(8, Math.round(bookWidth * 0.03));
+  const spineWidth = Math.max(18, Math.round(bookWidth * 0.07));
 
   const handleMouseDown = (e: React.MouseEvent) => {
     // prevent image selection when starting a drag
@@ -137,6 +144,8 @@ export default function Journal3D({
       <div
         className="relative cursor-grab active:cursor-grabbing"
         style={{
+          width: `${bookWidth}px`,
+          height: `${bookHeight}px`,
           transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`,
           transformStyle: 'preserve-3d',
           transition: isDragging ? 'none' : 'transform 0.3s ease-out',
@@ -158,7 +167,7 @@ export default function Journal3D({
             style={{
               width: `${bookWidth}px`,
               height: `${bookHeight}px`,
-              transform: 'translateZ(-30px)',
+              transform: `translateZ(-${zDepth}px)`,
               transformStyle: 'preserve-3d'
             }}
           >
@@ -173,7 +182,7 @@ export default function Journal3D({
             style={{
               width: `${bookWidth}px`,
               height: `${bookHeight}px`,
-              transform: 'translateZ(-29px) translateX(2px)',
+              transform: `translateZ(-${Math.max(1, zDepth - 1)}px) translateX(2px)`,
               transformStyle: 'preserve-3d'
             }}
           >
@@ -205,19 +214,28 @@ export default function Journal3D({
               {/* Full-bleed index image when opened (no padding/gaps) */}
               {currentPage === 1 ? (
                 <>
-                  <img
-                    src="/index_page.jpg"
-                    alt="Index Page"
-                    className="absolute inset-0 w-full h-full object-cover select-none"
-                    draggable={false}
-                    onDragStart={(e) => e.preventDefault()}
-                    style={{ touchAction: 'none' }}
-                  />
+                      <img
+                        src="/index_page.jpg"
+                        alt="Index Page"
+                        className="absolute inset-0 w-full h-full object-cover select-none"
+                        draggable={false}
+                        onDragStart={(e) => e.preventDefault()}
+                        style={{ touchAction: 'none' }}
+                      />
                 </>
               ) : pageImage ? (
-                <>
-                  <img src={pageImage} alt={`Page`} className="absolute inset-0 w-full h-full object-cover select-none" draggable={false} onDragStart={(e) => e.preventDefault()} style={{ touchAction: 'none' }} />
-                </>
+                <div className="relative w-full h-full flex">
+                  <div className="w-1/2 h-full overflow-hidden border-r border-amber-100/30">
+                    {prevPageImage ? (
+                      <img src={prevPageImage} alt="Previous page" className="absolute inset-0 w-full h-full object-cover select-none" draggable={false} onDragStart={(e) => e.preventDefault()} style={{ touchAction: 'none' }} />
+                    ) : (
+                      <div className="w-full h-full bg-amber-50/40" />
+                    )}
+                  </div>
+                  <div className="w-1/2 h-full overflow-hidden">
+                    <img src={pageImage} alt="Current page" className="absolute inset-0 w-full h-full object-cover select-none" draggable={false} onDragStart={(e) => e.preventDefault()} style={{ touchAction: 'none' }} />
+                  </div>
+                </div>
               ) : (
                 <div className="p-12 h-full flex flex-col" style={{ width: `${bookWidth}px`, height: `${bookHeight}px` }}>
                   {pageContent && (
@@ -238,7 +256,7 @@ export default function Journal3D({
               width: `${bookWidth}px`,
               height: `${bookHeight}px`,
               backgroundColor: coverImage ? 'transparent' : coverColor,
-              transform: currentPage === 0 ? 'translateZ(1px)' : 'translateZ(-30px) rotateY(-180deg)',
+              transform: currentPage === 0 ? 'translateZ(1px)' : `translateZ(-${zDepth}px) rotateY(-180deg)`,
               transformStyle: 'preserve-3d',
               transformOrigin: 'right center',
               transition: 'transform 0.8s cubic-bezier(0.4, 0.0, 0.2, 1)'
@@ -273,10 +291,10 @@ export default function Journal3D({
           <div
             className="absolute left-0 top-0 shadow-xl"
             style={{
-              width: `${Math.max(18, Math.round(bookWidth * 0.07))}px`,
+              width: `${spineWidth}px`,
               height: `${bookHeight}px`,
               backgroundColor: coverColor,
-              transform: `translateX(-${Math.max(8, Math.round(bookWidth * 0.03))}px) translateZ(-15px) rotateY(90deg)`,
+              transform: `translateX(-${spineOffset}px) translateZ(-${Math.round(zDepth / 2)}px) rotateY(90deg)`,
               transformStyle: 'preserve-3d',
               transformOrigin: 'center center'
             }}
